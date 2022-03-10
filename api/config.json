@@ -4,5 +4,5 @@
         { "address": "0xc98e641bbbfab95bd118da10c4d26cdc3f1bd387", "name": "Flogo Mascot" },
         { "address": "0xa5a79c35743361a49d3d9650bb3d7a7c91a83ee4", "name": "Dungeons and Dragons Character" }
     ],
-    "infura": "https://rinkeby.infura.io/v3/5ab811301f8540809735a516486857cd"
+    "infura": "https://rinkeby.infura.io/v3/<projectId>"
 }

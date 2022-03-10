@@ -1,41 +1,67 @@
 # NFT Token Ownership Verification with Vue.js and Node.js
-Example Project to demonstrate how to use Vue.js with nodejs backend
 
+This project uses an [NFT](https://ethereum.org/en/developers/docs/standards/tokens/erc-721/) usecase to illustrate how to implement a Web3 application from scratch.
 
-## Development Phase
+We choose to use the [Express](https://expressjs.com/) Node.js application framework to implement the backend API service, and [Vue.js](https://vuejs.org/) JavaScript framework to implement the web user interface.
 
-Usually, the way you develop and the way you build and run in production are completely different. That's why, I would like to define two phases: The development phase and production phase.
+The application can verify that a crypto wallet owner really owns a specified NFT token.  In the application's web UI, a user can enter an NFT contract address and a token ID to be verified.  The UI will send a message signing request to the user's wallet plugin (assuming that user is logged in to a wallet browser plugin), and prompt the user to sign a message containing the NFT address and ID.  After the user signs the message by using the private key in the wallet, the signature will be sent to the backend API service for verification.  The API service will extract the signer's public address from the signature, and query the blockchain to retrieve the owner of the specified NFT token, and then return both the verified signer's address and the token owner's address.  If these 2 addresses match, it proves that current wallet owner must be the current owner of the specified NFT token.
 
-In the development phase, we run the nodejs server and the Vue app on completely different ports. It’s easier and faster to develop that way. If you look at the following diagram the Vue app is running on port 8082 with the help of a webpack dev server and the nodejs server is running on port 3070.
+## Prerequisite 
+
+### Install Node.js
+
+I am using `zsh` on a Mac, and installed `Node.js` by using [nvm](https://github.com/nvm-sh/nvm#installing-and-updating) i.e.,
 
 ```sh
-# start the api nodejs on port 3070
+touch ~/.zshrc
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+nvm install node
+```
+
+Verify that `Node.js` and `npm` are installed correctly, i.e.,
+
+```sh
+nvm -v
+npm -v
+node -v
+```
+
+### Configuration
+
+Install MetaMask plugin for Chrome from [here](https://metamask.io/download/), and create an account if you do not already have a wallet.
+
+Create an account at [infura.io](https://infura.io/), and create an Ethereum project.  Copy the endpoint URL for the `rinkeby` test network, and use the URL in the API server configuration file, [api/config.json](./api/config.json).
+
+## Start the application as is
+
+For development by default, this application will start a backend API server on port `3070`, and a Vue UI proxy on port `8082`.  You can start these processes in separate terminals as follows.
+
+```sh
+# start the Node.js API server on port 3070
 cd api
 npm install
 npm run dev
 
-# start the vue.js app on port 8082
+# start the Vue.js UI proxy on port 8082
 cd nft-app
 npm install
 npm run serve
 ```
 
-## Project Structure
+View the web UI in a Chrome browser at http://localhost:8082/. Login to your wallet in MetaMask browser plugin.  In the web UI, enter a Token ID of `1` through `4`, and select an NFT contract, then click the `Sign` button to see the verification result, which should look like the following:
 
-Let’s understand the project structure for this project. We will have two package.json: one for the Vue and another for nodejs API. It’s always best practice to have completely different node_modules for each one. In this way, you won’t get merging issues or any other problems regarding web and server node modules collision.
+![Verify Signature](verify.png)
 
-If you look at the above project structure, all the vue.js app resides under the my-app folder and nodejs API resides under the api folder. If you put NodeJS API at the root folder instead of in a separate folder you might have issues with the Vue CLI picking up root node_modules.
+## Implement the API service from scratch
 
-## NodeJS API
-
-Create API project from scratch.
+In an empty project folder, e.g., `~/jsprojects/vue-nft-delivery`, create a JavaScript project from scratch, i.e,
 
 ```sh
 mkdir api -P && cd api
 npm init
 ```
 
-Parameters for `npm init `:
+Enter the following parameters when prompted by the command `npm init`:
 
 ```
 package name: (api)
@@ -43,117 +69,138 @@ version: (1.0.0)
 description: backend for nft-delivery
 entry point: (index.js) server.js
 test command: test
-git repository: https://github.com/yxuco/vue-nft-delivery
+git repository: https://github.com/johndoe/vue-nft-delivery
 keywords: nft
-author: Yueming Xu
+author: John Doe
 license: (ISC)
 ```
 
-We use the express and nodemon on the server-side. Express is the Fast, unopinionated, minimalist web framework for NodeJS and nodemon is the library which makes your API reloads automatically whenever there is a change in the files. Let’s install these two dependencies. nodemon is only used for development so install this as a dev dependency.
+This will create a file [package.json](./api/package.json), which you can edit if you want to change any of the parameters.
+
+We use the [Express](https://expressjs.com/) framework to implement APIs.  Besides, for convenience during the development, we use [nodemon](https://nodemon.io/) to restart the API server automatically whenever the code is updated.  So, add these dependencies for runtime and dev-only.
 
 ```sh
-npm install express --save
-npm install nodemon --save-dev
+npm install --save express
+npm install --save-dev nodemon
+```
 
-# use webpack to bundle javascript, styles etc
+The API will use [ethers.js](https://docs.ethers.io/v5/) to verify message signature, and use [web3.js](https://web3js.readthedocs.io/en/v1.7.1/) to connect to Ethereum node and call smart contract methods.  For development, we use [webpack](https://webpack.js.org/) to build production bundle of the scripts and assets in the application.  So add these dependencies as well.
+
+```sh
+npm install --save ethers web3
 npm install --save-dev webpack webpack-cli
 ```
 
-Create entry file [server.js](./api/server.js) and [webpack.config.js](./api/webpack.config.js).  Add scripts definitions to the final Nodejs config [package.json](./api/package.json).
+We are now ready to write the API code.  All APIs are implemented in [server.js](./api/server.js).  If you are not familiar with the `express` framework, you may find the references at the end of this doc helpful.
 
-The `server.js` implements 2 APIs, `/api/user` and `/api/users` for adding and querying user data, and the server listens on port `3070`.
+The `server.js` implements 2 APIs:
 
-Start the nodejs API server using command `npm run dev` and the moment you change any file, it will be automatically updated. We are using `nodemon` to watch files.
+* `/api/contracts` will return a list of pre-configured NFT contracts that this application will verify.
+* `/api/verify` will verify the client's signature of a NFT token ID, and retrieve the owner of a specified NFT token from an Ethereum node.
 
-Verify the API server: `curl http://localhost:3070/api/users`.
+It also uses [express.static](https://expressjs.com/en/starter/static-files.html) to serve static web content in `/public`, and the content of this application UI in `/nft-app` which we'll implement later in the next section.
 
-Build js production bundle using command `npm run build`.  Start the production server using command `npm run start`.
+During the development, the API server will listen on an HTTP port, but for production build, we should change it to use HTTPS.
 
-## Vue UI
+The configuration parameters are read from the file [config.json](./api/config.json), which includes
 
-Create vue app from scratch.
+* `port` is the API server's listen port.
+* `infura` is the URL of Ethereum node in [infura](https://infura.io/).  You can create a free account in `infura`, and create a project, and get the project's endpoint for the Ethereum network where your NFT is minted and/or traded.
+* `contracts` is a list of NFT contracts to be handled by this application.  The sample entries list 2 NFT contracts that I created tokens on the `rinkeby` test network.  This list will be displayed as a selection list on the web UI that we'll implement in the next section.
 
-Install Vue CLI, and create vuejs project
+The API `/api/verify` uses the contract ABI of the standard ERC-721 specification to fetch the owner address of a specified token.  Thus, we store a copy of the ABI definition in [erc721.json](./api/erc721.json).
+
+Create [webpack.config.js](./api/webpack.config.js) for production bundle.  Note that we build the production bundle to a parent `../dist` folder where we can add the web UI bundle later.  We also added a rule to avoid the build error `Can't resolve 'electron'` for `web3.js`.
+
+Edit the scripts in [package.json](./api/package.json) for development and production.  The production `start` script assumes that the application bundle is produced in the parent `../dist` folder.  
+
+Start the API server using command `npm run dev`, which uses `nodemon` to watch files, and so the server will automatically restart whenever the code is updated.
+
+Verify the API server by sending a request from another terminal: `curl http://localhost:3070/api/contracts`.
+
+Build the production bundle using command `npm run build`.  Start the production server using command `npm run start`.
+
+## Implement the Vue web UI from scratch
+
+In the project folder, e.g., `~/jsprojects/vue-nft-delivery`, create a `Vue.js` project named `nft-app`:
 
 ```sh
+# install Vue CLI globally if it is not done already
 npm install -g @vue/cli
+
+# create new project
 vue create nft-app
 ```
 
-Install packages.
+We use the [Bootstrap Vue 3](https://www.npmjs.com/package/bootstrap-vue-3) framework to build responsive web UI.  It uses `BootstrapVue` web components as described [here](https://bootstrap-vue.org/docs/components), and `Bootstrap` CSS classes as described [here](https://getbootstrap.com/docs/5.1/utilities/api/).
+
+The web UI uses [ethers.js](https://docs.ethers.io/v5/) to sign messages, and uses [axios](https://axios-http.com/docs/intro) to call backend APIs over HTTP/HTTPS.  So add these dependencies:
 
 ```sh
-# call APIs
-npm install --save axios
+cd nft-app
 
-# front-end css lib
+# dependencies for message signature and verification
+npm install --save axios ethers
+
+# dependencies for UI components and css classes
 npm install --save bootstrap bootstrap-vue-3
 ```
 
-Refer docs for [bootstrap css](https://getbootstrap.com/docs/4.5/getting-started/introduction/) and [bootstrap-vue](https://bootstrap-vue.org/docs).
+We are now ready to write code for the web UI. If you are not familiar with the `vue.js` or `bootstrap-vue` framework, you may find the references at the end of this doc helpful.
 
-Now the nodejs API is running on port 3070. Now it’s time to look at the Vue UI. The entire Vue app is under the folder [nft-app](./nft-app). You can create with this command `vue create nft-app`. I am not going to put all the files here you can look at the entire files in the above Github link or [here]().
+Edit the scripts in [package.json](./nft-app/package.json) to make it `serve` on port `8082`.
 
-Let’s see some important files [here](./nft-app/src/services/UserService.js). Here is the service file which calls node API. This is a service file with two async functions that use fetch API to make the API calls: `getAllUsers()` and `createUser(data)`.
+Edit the configuration file [vue.config.js](./nft-app/vue.config.js) to specify the URL of the backend API server as specified in the previous section, i.e., http://localhost:3070.  It also specifies the output folder for production bundle, which we'll build later in this section.
 
-Here is the Dashboard component that calls this service and gets the data from the API. Once we get the data from the API we set the state accordingly and renders the appropriate components again to pass the data down the component tree. You can find other components [here](./nft-app/src/components/Dashboard.vue).
+Edit the file [main.js](./nft-app/src/main.js) to register `bootstrap-vue`, so it will be available for all the application components.
 
-Note that ESLint default rule does not allow single-word component name, and thus you may see the following compilation error if a component is named `Header` or `header`:
+The file [SigService.js](./nft-app/src/services/SigService.js) implements service functions for the UI to interact with MetaMask wallet for signature calculation, and to call backend service APIs.
+
+The only Vue.js UI component for this application is implemented in [SignMessage.vue](./nft-app/src/components/SignMessage.vue).  When the component is loaded, it calls the backend API `/api/contracts` and uses the returned result to initialize the NFT contract selection list.  When the user clicks the `Sign` button, it send a request to MetaMask wallet where the user can sign the message by using the private key in the wallet.  When the signature is updated, a watcher method will pick the updated signature and calls the backend API `/api/verify`, and then display the verification result.  When HTTPS transport is used by the backend API server, this approach could be a reliable mechanism for web3 user authentication.  For even better security, however, we may add a step to request a random `nounce` from the backend server, and so the user will sign a random message, instead of the specified NFT token ID.
+
+Edit the root component [App.vue](./nft-app/src/App.vue) to include the `SignMessage` as a child component under the root.
+
+Note that the file [.eslintrc.js](./nft-app/src/components/.eslintrc.js) contains an `ESLint` rule to disable the syntax check for `multi-word-component-names`, and so component names do not have to use multiple words.  It is not necessary for this project because the only component of the project, `SignMessage` contains 2 words.  However, if you add a component with a single-word name, e.g., `Header`, you will see a compilation error:
 
 ```
 error  Component name "Header" should always be multi-word  vue/multi-word-component-names
 ```
 
-You can override the rule to allow single-word component names by adding [.eslintrc.js](./nft-app/src/components/.eslintrc.js) to the components' folder.
+The additional ESLint rule  in [.eslintrc.js](./nft-app/src/components/.eslintrc.js) would be necessary to override the default behavior.
 
-## Interaction between Vue UI and Node API
-
-In the development phase, the Vue app is running on port 8082 with the help of a Vue CLI and nodejs API running on port 3070.
-
-There should be some interaction between these two. We can proxy all the API calls to nodejs API. Vue CLI provides some inbuilt functionality and to tell the development server to proxy any unknown requests to your API server in development, we just need to add this file at the root where package.json resides and configures the appropriate API paths in [vue.config.js](./my-app/vue.config.js).
-
-With this in place, all the calls start with /api will be redirected to http://localhost:3070 where the nodejs API running.
-
-Once this is configured, you can run the Vue app on port 8082 and nodejs API on 3070 still make them work together.
+Start the web UI proxy server by using the following command.  It'll pick up code changes automatically, and thus you do not have to restart it during development.
 
 ```sh
-# nodejs API (Terminal 1)
-cd api (change it to API directory)
-npm run dev
-
-# Vue app (Terminal 2)
-cd my-app (change it to app directory)
+cd nft-app
 npm run serve
 ```
 
-## How To Build Project For Production
+View the web UI in a Chrome browser at http://localhost:8082/, and start testing.
 
-The Vue app runs on the port 8082 with the help of a Vue CLI. This is not the case for running in production. We have to build the Vue project and load those static assets with the node server. Let’s see those step by step here.
+## Build production bundle
 
-First, we need to build the Vue project from `./my-app` with this command `npm run build` or `vue-cli-service build` and all the built assets will be put under the dist folder.
+For production, we can build the applicaton bundle to the same `../dist` folder and so the same `Node.js` server will serve both the API service and the web UI code, as well as other static content in a `public` folder.  As described in the API service implementation [server.js](./api/server.js), the API server bundle will be output to the root of `../dist`, and the web UI bundle will be output to the sub-folder `../dist/nft-app`.  The following scripts will perform the build tasks.
 
-Second, we need to make some changes on the server-side. Here is the modified [server.js](./api/server.js) file.
+```sh
+cd ../api
+npm run build
 
-1. We need to import path that resolves `.` and `..`, and uses the appropriate file separator for any platform
-1. We have to use `express.static` at line number `30` to let express know there are a dist folder and assets of the Vue build.
-1. Load [index.html]() for the default route `/` at line number `46`
+cd ../nft-app
+npm run build
+```
 
-Once you are done with the above changes, you can actually run the whole app with the nodejs server running on port 3070 like below as nodejs acts as a web server as well. At this time you don’t need to run Vue CLI on port 8082. Every time you change anything on the Vue side you need to build the project again to reflect the changes.
+Start the production application server using the following command.
 
-## Summary
+```sh
+cd ../dist
+node serer.bundle.js
+```
 
-* There are so many ways we can build Vue apps and ship for production.
-* One way is to build the Vue app with NodeJS.
-* In the development phase, we can run Vue UI and Nodejs on separate ports.
-* The interaction between these two happens with proxying all the calls to API.
-* In the production phase, you can build the Vue app and put all the assets in the build folder and load it with the node server.
-* Nodejs act as a web server as well in the above case. You need to let express know where are all the Vue build assets are.
-* We can package the application in a number of ways.
-* You can deploy the packaged zip folder in any node environment.
+View the web UI in a Chrome browser at http://localhost:3070/. Login to your wallet in MetaMask browser plugin.  In the web UI, enter a Token ID of `1` through `4`, and select an NFT contract, then click the `Sign` button to see the verification result.
 
-## Conclusion
+You can add any other static HTML pages, such as [/public](./api/public/) to the `../dist/public`, and so they can be viewed at http://localhost:3070/public.
 
-This is one way of building and shipping Vue apps. This is really useful when you want to do server-side rendering or you need to do some processing. NodeJS is non-blocking IO and it is very good for normal websites as well. In future posts, I will discuss more on deploying strategies for this kind of architecture.
+If you update the server port and/or other configuration parameters in the [config.json](./api/config.json), you'll have to rebuild the production bundle, and then restart the `Node.js` server.
 
 ## References
 

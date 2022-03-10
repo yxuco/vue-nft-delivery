@@ -4,13 +4,13 @@ This project uses an [NFT](https://ethereum.org/en/developers/docs/standards/tok
 
 We choose to use the [Express](https://expressjs.com/) Node.js application framework to implement the backend API service, and [Vue.js](https://vuejs.org/) JavaScript framework to implement the web user interface.
 
-The application can verify that a crypto wallet owner really owns a specified NFT token.  In the application's web UI, a user can enter an NFT contract address and a token ID to be verified.  The UI will send a message signing request to the user's wallet plugin (assuming that user is logged in to a wallet browser plugin), and prompt the user to sign a message containing the NFT address and ID.  After the user signs the message by using the private key in the wallet, the signature will be sent to the backend API service for verification.  The API service will extract the signer's public address from the signature, and query the blockchain to retrieve the owner of the specified NFT token, and then return both the verified signer's address and the token owner's address.  If these 2 addresses match, it proves that current wallet owner must be the current owner of the specified NFT token.
+The application can verify that a crypto wallet owner really owns a specified NFT token.  In the application's web UI, a user can enter an NFT contract address and a token ID to be verified.  The UI will send a message signing request to the user's wallet plugin (assuming that user is logged in to a MetaMask Chrome plugin), and prompt the user to sign a message containing the NFT contract address and token ID.  After the user signs the message by using the private key in the wallet, the signature will be sent to a backend API service for verification.  The API service will extract the signer's public address from the signature, and query the blockchain to retrieve the owner of the specified NFT token, and then return both the verified signer's address and the token owner's address.  If these 2 addresses match, it proves that wallet owner must be the current owner of the specified NFT token.
 
 ## Prerequisite 
 
 ### Install Node.js
 
-I am using `zsh` on a Mac, and installed `Node.js` by using [nvm](https://github.com/nvm-sh/nvm#installing-and-updating) i.e.,
+I use `zsh` on a Mac, and installed `Node.js` by using [nvm](https://github.com/nvm-sh/nvm#installing-and-updating) i.e.,
 
 ```sh
 touch ~/.zshrc
@@ -28,13 +28,13 @@ node -v
 
 ### Configuration
 
-Install MetaMask plugin for Chrome from [here](https://metamask.io/download/), and create an account if you do not already have a wallet.
+Install MetaMask plugin for Chrome from [here](https://metamask.io/download/), and then create an account if you do not already have a wallet.
 
-Create an account at [infura.io](https://infura.io/), and create an Ethereum project.  Copy the endpoint URL for the `rinkeby` test network, and use the URL in the API server configuration file, [api/config.json](./api/config.json).
+Create an account at [infura.io](https://infura.io/), and then create an Ethereum project.  Copy the endpoint URL for the `rinkeby` test network, and use the URL in the API server configuration file, [api/config.json](./api/config.json).
 
 ## Start the application as is
 
-For development by default, this application will start a backend API server on port `3070`, and a Vue UI proxy on port `8082`.  You can start these processes in separate terminals as follows.
+For development by default, this application will start a backend API server on port `3070`, and a Vue web UI proxy on port `8082`.  You can start these processes in separate terminals as follows.
 
 ```sh
 # start the Node.js API server on port 3070
@@ -77,14 +77,14 @@ license: (ISC)
 
 This will create a file [package.json](./api/package.json), which you can edit if you want to change any of the parameters.
 
-We use the [Express](https://expressjs.com/) framework to implement APIs.  Besides, for convenience during the development, we use [nodemon](https://nodemon.io/) to restart the API server automatically whenever the code is updated.  So, add these dependencies for runtime and dev-only.
+We use the [Express](https://expressjs.com/) framework to implement backend service APIs.  Besides, for convenience during the development, we use [nodemon](https://nodemon.io/) to restart the API server automatically whenever the code is updated.  So, add these dependencies for runtime and dev-only.
 
 ```sh
 npm install --save express
 npm install --save-dev nodemon
 ```
 
-The API will use [ethers.js](https://docs.ethers.io/v5/) to verify message signature, and use [web3.js](https://web3js.readthedocs.io/en/v1.7.1/) to connect to Ethereum node and call smart contract methods.  For development, we use [webpack](https://webpack.js.org/) to build production bundle of the scripts and assets in the application.  So add these dependencies as well.
+The service APIs will use [ethers.js](https://docs.ethers.io/v5/) to verify message signature, and use [web3.js](https://web3js.readthedocs.io/en/v1.7.1/) to connect to an Ethereum node and call smart contract methods.  For development, we use [webpack](https://webpack.js.org/) to build production bundle of the application scripts and assets.  So add these dependencies as well.
 
 ```sh
 npm install --save ethers web3
@@ -95,26 +95,26 @@ We are now ready to write the API code.  All APIs are implemented in [server.js]
 
 The `server.js` implements 2 APIs:
 
-* `/api/contracts` will return a list of pre-configured NFT contracts that this application will verify.
-* `/api/verify` will verify the client's signature of a NFT token ID, and retrieve the owner of a specified NFT token from an Ethereum node.
+* `/api/contracts` will return a list of pre-configured NFT contracts whose tokens can be verified by this application.
+* `/api/verify` will verify the user's signature of a NFT token ID, and retrieve the owner of a specified NFT token from an Ethereum node.
 
-It also uses [express.static](https://expressjs.com/en/starter/static-files.html) to serve static web content in `/public`, and the content of this application UI in `/nft-app` which we'll implement later in the next section.
+It also uses [express.static](https://expressjs.com/en/starter/static-files.html) to serve static web content in a `/public` folder, as well as the application bundle of the web UI in `/nft-app`, which we'll implement in the next section.
 
 During the development, the API server will listen on an HTTP port, but for production build, we should change it to use HTTPS.
 
 The configuration parameters are read from the file [config.json](./api/config.json), which includes
 
 * `port` is the API server's listen port.
-* `infura` is the URL of Ethereum node in [infura](https://infura.io/).  You can create a free account in `infura`, and create a project, and get the project's endpoint for the Ethereum network where your NFT is minted and/or traded.
-* `contracts` is a list of NFT contracts to be handled by this application.  The sample entries list 2 NFT contracts that I created tokens on the `rinkeby` test network.  This list will be displayed as a selection list on the web UI that we'll implement in the next section.
+* `infura` is the URL of Ethereum node in [infura](https://infura.io/).  You can create a free account in `infura`, and then create a project, and copy the project's endpoint for the Ethereum network where your NFT is minted and/or traded.
+* `contracts` is a list of NFT contracts to be handled by this application.  The sample entries list 2 NFT contracts that I created on the `rinkeby` test network.  This list will be displayed as a selection list on the web UI that we'll implement in the next section.  If you are interested in how to create such NFT contracts from scratch, refer to the [Sample NFT](https://github.com/yxuco/enft) project.
 
 The API `/api/verify` uses the contract ABI of the standard ERC-721 specification to fetch the owner address of a specified token.  Thus, we store a copy of the ABI definition in [erc721.json](./api/erc721.json).
 
-Create [webpack.config.js](./api/webpack.config.js) for production bundle.  Note that we build the production bundle to a parent `../dist` folder where we can add the web UI bundle later.  We also added a rule to avoid the build error `Can't resolve 'electron'` for `web3.js`.
+Create [webpack.config.js](./api/webpack.config.js) for production bundle.  Note that we'll build the production bundle to a parent `../dist` folder where we can add the web UI bundle later.  We also added a rule to avoid the build error `Can't resolve 'electron'` for `web3.js`.
 
 Edit the scripts in [package.json](./api/package.json) for development and production.  The production `start` script assumes that the application bundle is produced in the parent `../dist` folder.  
 
-Start the API server using command `npm run dev`, which uses `nodemon` to watch files, and so the server will automatically restart whenever the code is updated.
+Start the API server using command `npm run dev`, which uses `nodemon` to watch files, and so the API server will automatically restart whenever the code is updated.
 
 Verify the API server by sending a request from another terminal: `curl http://localhost:3070/api/contracts`.
 
@@ -156,7 +156,7 @@ Edit the file [main.js](./nft-app/src/main.js) to register `bootstrap-vue`, so i
 
 The file [SigService.js](./nft-app/src/services/SigService.js) implements service functions for the UI to interact with MetaMask wallet for signature calculation, and to call backend service APIs.
 
-The only Vue.js UI component for this application is implemented in [SignMessage.vue](./nft-app/src/components/SignMessage.vue).  When the component is loaded, it calls the backend API `/api/contracts` and uses the returned result to initialize the NFT contract selection list.  When the user clicks the `Sign` button, it send a request to MetaMask wallet where the user can sign the message by using the private key in the wallet.  When the signature is updated, a watcher method will pick the updated signature and calls the backend API `/api/verify`, and then display the verification result.  When HTTPS transport is used by the backend API server, this approach could be a reliable mechanism for web3 user authentication.  For even better security, however, we may add a step to request a random `nounce` from the backend server, and so the user will sign a random message, instead of the specified NFT token ID.
+The only Vue.js UI component for this application is implemented in [SignMessage.vue](./nft-app/src/components/SignMessage.vue).  When the component is loaded, it calls the backend API `/api/contracts` and uses the returned result to initialize the NFT contract selection list.  When the user clicks the `Sign` button, it send a request to MetaMask wallet where the user can sign a message by using the private key in the wallet.  When the signature is updated, a watcher method will pick the updated signature and call the backend API `/api/verify`, and then display the verification result.  When HTTPS transport is used by the backend API server, this approach could be a reliable mechanism for web3 user authentication.  For even better security, however, we may add a step to request a random `nounce` from the backend server, and so the user will sign a dynamically generated random message, instead of a static NFT token ID.
 
 Edit the root component [App.vue](./nft-app/src/App.vue) to include the `SignMessage` as a child component under the root.
 
@@ -179,7 +179,7 @@ View the web UI in a Chrome browser at http://localhost:8082/, and start testing
 
 ## Build production bundle
 
-For production, we can build the applicaton bundle to the same `../dist` folder and so the same `Node.js` server will serve both the API service and the web UI code, as well as other static content in a `public` folder.  As described in the API service implementation [server.js](./api/server.js), the API server bundle will be output to the root of `../dist`, and the web UI bundle will be output to the sub-folder `../dist/nft-app`.  The following scripts will perform the build tasks.
+For production, we can build the applicaton bundle to the same `../dist` folder and so the same `Node.js` server will serve both the API service and the web UI, as well as other static content in a `public` folder.  As described in the API service implementation [server.js](./api/server.js), the API server bundle will be output to the root of `../dist`, and the web UI bundle will be output to the sub-folder `../dist/nft-app`.  The following scripts will perform the build tasks.
 
 ```sh
 cd ../api
@@ -198,9 +198,9 @@ node serer.bundle.js
 
 View the web UI in a Chrome browser at http://localhost:3070/. Login to your wallet in MetaMask browser plugin.  In the web UI, enter a Token ID of `1` through `4`, and select an NFT contract, then click the `Sign` button to see the verification result.
 
-You can add any other static HTML pages, such as [/public](./api/public/) to the `../dist/public`, and so they can be viewed at http://localhost:3070/public.
+You can add any other static HTML pages, such as sample files under [/public](./api/public/) to the folder `../dist/public`, and so they can be viewed at http://localhost:3070/public.
 
-If you update the server port and/or other configuration parameters in the [config.json](./api/config.json), you'll have to rebuild the production bundle, and then restart the `Node.js` server.
+If you update the server port and/or other configuration parameters in [config.json](./api/config.json), you'll have to rebuild the production bundles, and then restart the `Node.js` server.
 
 ## References
 

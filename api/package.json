@@ -1,0 +1,34 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "description": "backend for nft-delivery",
+  "main": "server.js",
+  "scripts": {
+    "start": "cd ../dist && node server.bundle.js",
+    "build": "webpack --config webpack.config.js --stats-error-details",
+    "dev": "nodemon ./server.js localhost 3070"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yxuco/vue-nft-delivery.git"
+  },
+  "keywords": [
+    "nft"
+  ],
+  "author": "Yueming Xu",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/yxuco/vue-nft-delivery/issues"
+  },
+  "homepage": "https://github.com/yxuco/vue-nft-delivery#readme",
+  "dependencies": {
+    "ethers": "^5.5.4",
+    "express": "^4.17.3",
+    "web3": "^1.7.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.15",
+    "webpack": "^5.70.0",
+    "webpack-cli": "^4.9.2"
+  }
+}
